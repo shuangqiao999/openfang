@@ -6,6 +6,18 @@ on:
     tags: [ 'v*' ]
   workflow_dispatch:
 
+env:
+  # ========== Rust 极致性能优化 ==========
+  # 启用 AVX2、BMI2 指令集，优化等级 3 (O3)
+  RUSTFLAGS: "-C target-feature=+avx2,+bmi2 -C opt-level=3"
+  # 全程序 LTO + 合并代码生成单元 (提升性能但增加编译时间)
+  CARGO_PROFILE_RELEASE_LTO: "fat"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+  # ========== Node.js 构建优化 ==========
+  NODE_ENV: "production"
+  VITE_BUILD_MINIFY: "terser"          # 使用 terser 进行极致压缩
+  VITE_BUILD_SOURCEMAP: "false"        # 不生成 sourcemap
+
 jobs:
   build:
     runs-on: windows-latest
@@ -14,7 +26,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1. 安装 Rust 工具链
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -24,17 +35,17 @@ jobs:
         with:
           key: gui-${{ runner.os }}
 
-      # 2. 从源码编译 OpenFang CLI（生成 openfang.exe）
+      # 编译 OpenFang CLI (自动应用 RUSTFLAGS 优化)
       - name: Build OpenFang CLI
         run: cargo build --release -p openfang-cli
 
-      # 3. 将 openfang.exe 复制到 Tauri 资源目录
+      # 复制 openfang.exe 到 Tauri 资源目录
       - name: Copy openfang.exe
         run: |
           New-Item -ItemType Directory -Force -Path tauri-gui\src-tauri\backend
           Copy-Item target\release\openfang.exe tauri-gui\src-tauri\backend\openfang.exe
 
-      # 4. 同步 Agent 模板
+      # 同步 Agent 模板
       - name: Sync agent templates
         run: |
           Remove-Item -Recurse -Force tauri-gui\agent-templates\* -ErrorAction SilentlyContinue
@@ -45,7 +56,7 @@ jobs:
             }
           }
 
-      # 5. 安装 Node.js 和前端依赖
+      # 安装 Node.js 并优化构建
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -56,18 +67,25 @@ jobs:
           cd tauri-gui
           npm ci
 
-      # 6. 构建前端并打包 Tauri 应用
+      # 前端构建 (Vite 生产模式 + 环境变量已设，默认即最优压缩)
+      # 可选：显式运行 build 以确认
+      - name: Build frontend
+        run: |
+          cd tauri-gui
+          npm run build
+
+      # Tauri 构建 (不需要 --release 参数，因为默认就是 release)
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: ./tauri-gui
-          args: --release
+          # 不传 args，避免错误
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      # 7. 上传安装包
+      # 上传安装包
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
