@@ -43,8 +43,14 @@ jobs:
           node-version: 20
       - name: Install frontend deps
         run: cd tauri-gui && npm ci
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
+      - name: Install Tauri CLI (exact version)
+        run: cargo install tauri-cli --version "=2.10.3"
+      - name: Verify Tauri versions
+        run: |
+          Write-Output "=== Rust tauri crate ==="
+          cargo tree -p openfang-tauri-gui -i tauri --depth 0
+          Write-Output "=== NPM tauri packages ==="
+          cd tauri-gui && npm ls @tauri-apps/api @tauri-apps/cli
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
