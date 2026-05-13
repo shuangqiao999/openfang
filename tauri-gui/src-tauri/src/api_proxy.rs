@@ -197,7 +197,7 @@ pub async fn get_model_list(
                 .filter_map(|m| m["name"].as_str().map(String::from))
                 .collect())
         }
-        "openai" | "openai_compatible" | "groq" => {
+        "openai" | "openai_compatible" | "groq" | "lmstudio" => {
             let url = format!("{}/models", base_url.trim_end_matches('/'));
             let mut req = client.get(&url);
             if let Some(key) = &api_key {

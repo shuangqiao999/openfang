@@ -8,6 +8,7 @@ const { Text } = Typography;
 
 const providerOptions = [
   { label: 'Ollama (本地)', value: 'ollama' },
+  { label: 'LM Studio (本地)', value: 'lmstudio' },
   { label: 'OpenAI', value: 'openai' },
   { label: 'OpenAI 兼容 (本地)', value: 'openai_compatible' },
   { label: 'Anthropic', value: 'anthropic' },
@@ -17,6 +18,7 @@ const providerOptions = [
 // 预设地址：切换提供商时自动填充
 const providerDefaults: Record<string, { baseUrl: string; hint: string }> = {
   ollama: { baseUrl: 'http://localhost:11434/v1', hint: 'Ollama 默认端口 11434' },
+  lmstudio: { baseUrl: 'http://localhost:1234/v1', hint: 'LM Studio 默认端口 1234，通常无需 API Key' },
   openai: { baseUrl: 'https://api.openai.com/v1', hint: '使用 OpenAI API Key 认证' },
   openai_compatible: { baseUrl: 'http://localhost:1234/v1', hint: '如 LM Studio / vLLM / LocalAI 等' },
   anthropic: { baseUrl: 'https://api.anthropic.com/v1', hint: '使用 Anthropic API Key 认证' },
@@ -24,7 +26,7 @@ const providerDefaults: Record<string, { baseUrl: string; hint: string }> = {
 };
 
 // 支持拉取模型列表的提供商
-const FETCHABLE_PROVIDERS = ['ollama', 'openai', 'openai_compatible', 'groq'];
+const FETCHABLE_PROVIDERS = ['ollama', 'lmstudio', 'openai', 'openai_compatible', 'groq'];
 
 const SettingsForm: React.FC = () => {
   const { config, saving, fetchConfig, saveConfig } = useConfigStore();
