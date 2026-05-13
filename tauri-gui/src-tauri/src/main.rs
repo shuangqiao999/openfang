@@ -46,6 +46,7 @@ pub fn run() {
             commands::delete_agent,
             commands::send_message_stream,
             commands::list_agent_templates,
+            commands::fetch_models,
         ])
         .setup(move |app| {
             let manager = process_manager.clone();

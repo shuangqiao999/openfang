@@ -24,4 +24,8 @@ export const commands = {
   // 流式消息
   sendMessageStream: (agentId: string, message: string) =>
     invoke<void>('send_message_stream', { agentId, message }),
+
+  // 拉取模型列表
+  fetchModels: (provider: string, baseUrl: string, apiKey?: string) =>
+    invoke<string[]>('fetch_models', { provider, baseUrl, apiKey }),
 };

@@ -1,11 +1,30 @@
 import { create } from 'zustand';
 import { commands } from '../services/tauri_commands';
-import type { ModelConfig, BackendStatus } from '../types';
+import type { ModelConfig, BackendStatus, ThemeMode } from '../types';
 import { listen } from '@tauri-apps/api/event';
+
+const THEME_KEY = 'openfang-theme';
+
+// 从 localStorage 读取主题偏好
+function loadTheme(): ThemeMode {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+  } catch { /* ignore */ }
+  return 'light';
+}
+
+// 持久化主题到 localStorage
+function saveTheme(mode: ThemeMode) {
+  try {
+    localStorage.setItem(THEME_KEY, mode);
+  } catch { /* ignore */ }
+}
 
 interface ConfigStore {
   config: ModelConfig;
   backendStatus: BackendStatus;
+  themeMode: ThemeMode;
   loading: boolean;
   saving: boolean;
 
@@ -13,9 +32,11 @@ interface ConfigStore {
   saveConfig: (config: ModelConfig) => Promise<void>;
   checkStatus: () => Promise<void>;
   initListener: () => Promise<void>;
+  toggleTheme: () => void;
+  setTheme: (mode: ThemeMode) => void;
 }
 
-export const useConfigStore = create<ConfigStore>((set) => ({
+export const useConfigStore = create<ConfigStore>((set, get) => ({
   config: {
     provider: 'ollama',
     base_url: 'http://localhost:11434/v1',
@@ -26,6 +47,7 @@ export const useConfigStore = create<ConfigStore>((set) => ({
     healthy: false,
     version: '未知',
   },
+  themeMode: loadTheme(),
   loading: false,
   saving: false,
 
@@ -69,5 +91,16 @@ export const useConfigStore = create<ConfigStore>((set) => ({
         },
       }));
     });
+  },
+
+  toggleTheme: () => {
+    const next = get().themeMode === 'light' ? 'dark' : 'light';
+    saveTheme(next);
+    set({ themeMode: next });
+  },
+
+  setTheme: (mode: ThemeMode) => {
+    saveTheme(mode);
+    set({ themeMode: mode });
   },
 }));

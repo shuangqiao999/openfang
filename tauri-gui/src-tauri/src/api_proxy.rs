@@ -169,3 +169,72 @@ pub async fn send_message_stream(
 
     Ok(())
 }
+
+/// 从模型提供商的 API 获取可用模型列表。
+/// 支持 Ollama（/api/tags）和 OpenAI 兼容（/models）接口。
+pub async fn get_model_list(
+    provider: &str,
+    base_url: &str,
+    api_key: Option<String>,
+) -> Result<Vec<String>, String> {
+    let client = reqwest::Client::new();
+
+    match provider {
+        "ollama" => {
+            // Ollama 使用 /api/tags 接口，地址需要去掉 /v1 后缀
+            let url = format!("{}/api/tags", base_url.trim_end_matches("/v1"));
+            let resp = client
+                .get(&url)
+                .send()
+                .await
+                .map_err(|e| format!("Ollama 请求失败: {e}"))?;
+            let json: Value = resp.json().await.map_err(|e| format!("解析响应失败: {e}"))?;
+            let models = json["models"]
+                .as_array()
+                .ok_or("Ollama 返回格式异常，缺少 models 字段")?;
+            Ok(models
+                .iter()
+                .filter_map(|m| m["name"].as_str().map(String::from))
+                .collect())
+        }
+        "openai" | "openai_compatible" | "groq" => {
+            let url = format!("{}/models", base_url.trim_end_matches('/'));
+            let mut req = client.get(&url);
+            if let Some(key) = &api_key {
+                if !key.is_empty() {
+                    req = req.bearer_auth(key);
+                }
+            }
+            let resp = req
+                .send()
+                .await
+                .map_err(|e| format!("请求模型列表失败: {e}"))?;
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                return Err(format!("HTTP {}: {}. 请检查 API 地址和密钥是否正确", status, body));
+            }
+
+            let json: Value = resp.json().await.map_err(|e| format!("解析响应失败: {e}"))?;
+            let models = json["data"]
+                .as_array()
+                .ok_or("返回格式异常，缺少 data 字段")?;
+            Ok(models
+                .iter()
+                .filter_map(|m| m["id"].as_str().map(String::from))
+                .collect())
+        }
+        "anthropic" => {
+            // Anthropic 没有公开的模型列表 API，返回常用模型
+            Ok(vec![
+                "claude-sonnet-4-20250514".to_string(),
+                "claude-3-opus-20240229".to_string(),
+                "claude-3-5-sonnet-20241022".to_string(),
+                "claude-3-5-haiku-20241022".to_string(),
+                "claude-3-haiku-20240307".to_string(),
+            ])
+        }
+        _ => Err(format!("提供商 \"{}\" 不支持拉取模型列表", provider)),
+    }
+}

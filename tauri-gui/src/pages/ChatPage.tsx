@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import AgentList from '../components/AgentList';
 import ChatBox from '../components/ChatBox';
 import MessageBubble from '../components/MessageBubble';
+import ThemeToggle from '../components/ThemeToggle';
 import { useAgentStore } from '../stores/agentStore';
 import { useChatStore } from '../stores/chatStore';
 
@@ -59,13 +60,16 @@ const ChatPage: React.FC = () => {
           <Text strong style={{ fontSize: 16 }}>
             {selectedAgent ? selectedAgent.name : '选择一个智能体开始对话'}
           </Text>
-          <Button
-            type="text"
-            icon={<SettingOutlined />}
-            onClick={() => navigate('/settings')}
-          >
-            设置
-          </Button>
+          <Space>
+            <ThemeToggle />
+            <Button
+              type="text"
+              icon={<SettingOutlined />}
+              onClick={() => navigate('/settings')}
+            >
+              设置
+            </Button>
+          </Space>
         </Header>
 
         <Content

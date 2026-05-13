@@ -58,3 +58,5 @@ export interface AgentListItem {
   provider: string;
   status: string;
 }
+
+export type ThemeMode = 'light' | 'dark';

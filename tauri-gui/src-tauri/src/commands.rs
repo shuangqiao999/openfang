@@ -248,3 +248,13 @@ pub async fn send_message_stream(
 ) -> Result<(), String> {
     api_proxy::send_message_stream(&agent_id, &message, app).await
 }
+
+/// 从模型提供商拉取可用模型列表。
+#[tauri::command]
+pub async fn fetch_models(
+    provider: String,
+    base_url: String,
+    api_key: Option<String>,
+) -> Result<Vec<String>, String> {
+    crate::api_proxy::get_model_list(&provider, &base_url, api_key).await
+}
