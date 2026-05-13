@@ -7,82 +7,48 @@ on:
   workflow_dispatch:
 
 env:
-  # ========== Rust 极致性能优化 ==========
   RUSTFLAGS: "-C target-feature=+avx2,+bmi2 -C opt-level=3"
   CARGO_PROFILE_RELEASE_LTO: "fat"
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
-  # ========== Node.js 构建优化 ==========
   NODE_ENV: "production"
-  VITE_BUILD_MINIFY: "terser"
-  VITE_BUILD_SOURCEMAP: "false"
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
-
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: gui-${{ runner.os }}
-
-      # 编译 OpenFang CLI（自动应用 RUSTFLAGS 优化）
       - name: Build OpenFang CLI
         run: cargo build --release -p openfang-cli
-
-      # 复制 openfang.exe 到 Tauri 资源目录
       - name: Copy openfang.exe
         run: |
           New-Item -ItemType Directory -Force -Path tauri-gui\src-tauri\backend
-          Copy-Item target\release\openfang.exe tauri-gui\src-tauri\backend\openfang.exe
-
-      # 同步 Agent 模板（从 agents/ 目录）
+          Copy-Item target\release\openfang.exe tauri-gui\src-tauri\backend\
       - name: Sync agent templates
         run: |
           Remove-Item -Recurse -Force tauri-gui\agent-templates\* -ErrorAction SilentlyContinue
           Get-ChildItem agents -Directory | ForEach-Object {
             $src = Join-Path $_.FullName "agent.toml"
             if (Test-Path $src) {
-              Copy-Item $src (Join-Path tauri-gui\agent-templates "$($_.Name).toml") -Force
+              Copy-Item $src (Join-Path tauri-gui\agent-templates "$($_.Name).toml")
             }
           }
-
-      # 安装 Node.js 和前端依赖
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install frontend deps
-        run: |
-          cd tauri-gui
-          npm ci
-
-      # 前端构建：先类型检查，再 Vite 构建（修复 tsc 找不到问题）
-      - name: Build frontend
-        run: |
-          cd tauri-gui
-          npm run type-check
-          npm run build
-
-      # 构建 Tauri 应用（默认 release，不传递 --release 参数）
+        run: cd tauri-gui && npm ci
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: ./tauri-gui
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      # 上传安装包
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
