@@ -8,15 +8,13 @@ on:
 
 env:
   # ========== Rust 极致性能优化 ==========
-  # 启用 AVX2、BMI2 指令集，优化等级 3 (O3)
   RUSTFLAGS: "-C target-feature=+avx2,+bmi2 -C opt-level=3"
-  # 全程序 LTO + 合并代码生成单元 (提升性能但增加编译时间)
   CARGO_PROFILE_RELEASE_LTO: "fat"
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
   # ========== Node.js 构建优化 ==========
   NODE_ENV: "production"
-  VITE_BUILD_MINIFY: "terser"          # 使用 terser 进行极致压缩
-  VITE_BUILD_SOURCEMAP: "false"        # 不生成 sourcemap
+  VITE_BUILD_MINIFY: "terser"
+  VITE_BUILD_SOURCEMAP: "false"
 
 jobs:
   build:
@@ -35,7 +33,7 @@ jobs:
         with:
           key: gui-${{ runner.os }}
 
-      # 编译 OpenFang CLI (自动应用 RUSTFLAGS 优化)
+      # 编译 OpenFang CLI（自动应用 RUSTFLAGS 优化）
       - name: Build OpenFang CLI
         run: cargo build --release -p openfang-cli
 
@@ -45,7 +43,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path tauri-gui\src-tauri\backend
           Copy-Item target\release\openfang.exe tauri-gui\src-tauri\backend\openfang.exe
 
-      # 同步 Agent 模板
+      # 同步 Agent 模板（从 agents/ 目录）
       - name: Sync agent templates
         run: |
           Remove-Item -Recurse -Force tauri-gui\agent-templates\* -ErrorAction SilentlyContinue
@@ -56,7 +54,7 @@ jobs:
             }
           }
 
-      # 安装 Node.js 并优化构建
+      # 安装 Node.js 和前端依赖
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -67,19 +65,18 @@ jobs:
           cd tauri-gui
           npm ci
 
-      # 前端构建 (Vite 生产模式 + 环境变量已设，默认即最优压缩)
-      # 可选：显式运行 build 以确认
+      # 前端构建：先类型检查，再 Vite 构建（修复 tsc 找不到问题）
       - name: Build frontend
         run: |
           cd tauri-gui
+          npm run type-check
           npm run build
 
-      # Tauri 构建 (不需要 --release 参数，因为默认就是 release)
+      # 构建 Tauri 应用（默认 release，不传递 --release 参数）
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: ./tauri-gui
-          # 不传 args，避免错误
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
