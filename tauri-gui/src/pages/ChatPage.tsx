@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Layout, Typography, Button, Space } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import { SettingOutlined, NodeIndexOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import AgentList from '../components/AgentList';
 import ChatBox from '../components/ChatBox';
@@ -62,6 +62,13 @@ const ChatPage: React.FC = () => {
           </Text>
           <Space>
             <ThemeToggle />
+            <Button
+              type="text"
+              icon={<NodeIndexOutlined />}
+              onClick={() => navigate('/knowledge-graph')}
+            >
+              知识图谱
+            </Button>
             <Button
               type="text"
               icon={<SettingOutlined />}

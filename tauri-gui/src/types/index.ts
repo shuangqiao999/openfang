@@ -60,3 +60,43 @@ export interface AgentListItem {
 }
 
 export type ThemeMode = 'light' | 'dark';
+
+// 知识图谱类型
+export interface GraphNode {
+  id: string;
+  name: string;
+  type: string;
+  properties: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  label: string;
+  confidence: number;
+  properties: Record<string, unknown>;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface Node3D {
+  id: string;
+  name: string;
+  type: string;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  properties: Record<string, unknown>;
+}
+
+export interface OptimizationProgress {
+  percent: number;
+  message: string;
+}

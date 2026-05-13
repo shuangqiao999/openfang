@@ -5,6 +5,7 @@ import zhCN from 'antd/locale/zh_CN';
 import { useConfigStore } from './stores/configStore';
 import ChatPage from './pages/ChatPage';
 import SettingsPage from './pages/SettingsPage';
+import KnowledgeGraph3D from './pages/KnowledgeGraph3D';
 import './App.css';
 
 const App: React.FC = () => {
@@ -29,6 +30,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<ChatPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/knowledge-graph" element={<KnowledgeGraph3D />} />
           </Routes>
         </BrowserRouter>
       </AntApp>

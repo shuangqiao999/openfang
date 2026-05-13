@@ -258,3 +258,33 @@ pub async fn fetch_models(
 ) -> Result<Vec<String>, String> {
     crate::api_proxy::get_model_list(&provider, &base_url, api_key).await
 }
+
+/// 获取知识图谱数据（实体 + 关系）。
+#[tauri::command]
+pub async fn get_knowledge_graph_data() -> Result<crate::knowledge_graph::GraphData, String> {
+    crate::knowledge_graph::load_graph_data(500, 2000)
+}
+
+/// 启动 LLM 审查与去重（异步执行，通过事件返回进度）。
+#[tauri::command]
+pub async fn start_knowledge_optimization(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn(async move {
+        match crate::knowledge_optimizer::run_optimization(app.clone()).await {
+            Ok(result) => {
+                let _ = app.emit("optimization-complete", &serde_json::json!({
+                    "success": true,
+                    "merged_count": result.merged_count,
+                    "removed_count": result.removed_count,
+                    "message": result.message,
+                }));
+            }
+            Err(e) => {
+                let _ = app.emit("optimization-complete", &serde_json::json!({
+                    "success": false,
+                    "message": e,
+                }));
+            }
+        }
+    });
+    Ok(())
+}

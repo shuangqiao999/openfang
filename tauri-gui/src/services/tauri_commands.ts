@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ModelConfig, AgentTemplate, BackendStatus } from '../types';
+import type { ModelConfig, AgentTemplate, BackendStatus, GraphData } from '../types';
 
 export const commands = {
   // 后端管理
@@ -28,4 +28,8 @@ export const commands = {
   // 拉取模型列表
   fetchModels: (provider: string, baseUrl: string, apiKey?: string) =>
     invoke<string[]>('fetch_models', { provider, baseUrl, apiKey }),
+
+  // 知识图谱
+  getKnowledgeGraphData: () => invoke<GraphData>('get_knowledge_graph_data'),
+  startKnowledgeOptimization: () => invoke<void>('start_knowledge_optimization'),
 };

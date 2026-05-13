@@ -2,6 +2,8 @@ mod child_process;
 mod commands;
 mod config_manager;
 mod api_proxy;
+mod knowledge_graph;
+mod knowledge_optimizer;
 
 use child_process::ChildProcessManager;
 use std::sync::Arc;
@@ -47,6 +49,8 @@ pub fn run() {
             commands::send_message_stream,
             commands::list_agent_templates,
             commands::fetch_models,
+            commands::get_knowledge_graph_data,
+            commands::start_knowledge_optimization,
         ])
         .setup(move |app| {
             let manager = process_manager.clone();
