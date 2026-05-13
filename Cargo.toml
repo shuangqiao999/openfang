@@ -14,10 +14,8 @@ members = [
     "crates/openfang-desktop",
     "crates/openfang-hands",
     "crates/openfang-extensions",
-    "xtask",
-]
-exclude = [
     "tauri-gui/src-tauri",
+    "xtask",
 ]
 
 [workspace.package]

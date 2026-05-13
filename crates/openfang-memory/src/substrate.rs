@@ -614,6 +614,35 @@ impl MemorySubstrate {
         .await
         .map_err(|e| OpenFangError::Internal(e.to_string()))?
     }
+
+    /// Query the knowledge graph with a pattern (sync).
+    pub fn query_graph_sync(&self, pattern: GraphPattern) -> OpenFangResult<Vec<GraphMatch>> {
+        self.knowledge.query_graph(pattern)
+    }
+
+    /// 列出所有实体（同步，最多返回 max 条）。
+    pub fn list_all_entities(&self, max: usize) -> OpenFangResult<Vec<Entity>> {
+        self.knowledge.list_all_entities(max)
+    }
+
+    /// 列出与给定实体相关的所有关系（同步，最多返回 max 条）。
+    pub fn list_all_relations(&self, entity_ids: &[String], max: usize) -> OpenFangResult<Vec<Relation>> {
+        self.knowledge.list_all_relations(entity_ids, max)
+    }
+
+    /// 删除实体并级联删除其所有关联关系（同步）。
+    pub fn delete_entity(&self, entity_id: &str) -> OpenFangResult<usize> {
+        self.knowledge.delete_entity(entity_id)
+    }
+
+    /// 更新实体的 properties 字段（同步）。
+    pub fn update_entity_properties(
+        &self,
+        entity_id: &str,
+        properties: &HashMap<String, serde_json::Value>,
+    ) -> OpenFangResult<()> {
+        self.knowledge.update_entity_properties(entity_id, properties)
+    }
 }
 
 #[async_trait]

@@ -186,6 +186,127 @@ impl KnowledgeStore {
         }
         Ok(matches)
     }
+
+    /// 列出所有实体（无筛选条件，最多返回 max 条）。
+    pub fn list_all_entities(&self, max: usize) -> OpenFangResult<Vec<Entity>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| OpenFangError::Internal(e.to_string()))?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, entity_type, name, properties, created_at, updated_at \
+                 FROM entities ORDER BY updated_at DESC LIMIT ?1",
+            )
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let rows = stmt
+            .query_map([max as i64], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let mut entities = Vec::new();
+        for row in rows {
+            let (id, etype, name, props, created, updated) =
+                row.map_err(|e| OpenFangError::Memory(e.to_string()))?;
+            entities.push(parse_entity(&id, &etype, &name, &props, &created, &updated));
+        }
+        Ok(entities)
+    }
+
+    /// 列出所有关系（关联到已加载实体的关系，最多返回 max 条）。
+    pub fn list_all_relations(&self, entity_ids: &[String], max: usize) -> OpenFangResult<Vec<Relation>> {
+        if entity_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| OpenFangError::Internal(e.to_string()))?;
+        let placeholders: Vec<String> = entity_ids.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+        let in_clause = placeholders.join(", ");
+        let sql = format!(
+            "SELECT source_entity, relation_type, target_entity, properties, confidence, created_at \
+             FROM relations \
+             WHERE source_entity IN ({0}) AND target_entity IN ({0}) \
+             LIMIT ?{1}",
+            in_clause,
+            entity_ids.len() + 1
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        for id in entity_ids {
+            params.push(Box::new(id.clone()));
+        }
+        params.push(Box::new(max as i64));
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let rows = stmt
+            .query_map(param_refs.as_slice(), |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, f64>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let mut relations = Vec::new();
+        for row in rows {
+            let (source, rtype, target, props, confidence, created) =
+                row.map_err(|e| OpenFangError::Memory(e.to_string()))?;
+            relations.push(parse_relation(&source, &rtype, &target, &props, confidence, &created));
+        }
+        Ok(relations)
+    }
+
+    /// 删除实体及其所有关联关系（级联删除）。
+    pub fn delete_entity(&self, entity_id: &str) -> OpenFangResult<usize> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| OpenFangError::Internal(e.to_string()))?;
+        // 先删除关联关系
+        let rel_count = conn
+            .execute(
+                "DELETE FROM relations WHERE source_entity = ?1 OR target_entity = ?1",
+                [entity_id],
+            )
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        // 再删除实体
+        let entity_count = conn
+            .execute("DELETE FROM entities WHERE id = ?1", [entity_id])
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        Ok(rel_count + entity_count)
+    }
+
+    /// 更新实体的属性（按 ID 精确更新 properties 字段）。
+    pub fn update_entity_properties(
+        &self,
+        entity_id: &str,
+        properties: &HashMap<String, serde_json::Value>,
+    ) -> OpenFangResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| OpenFangError::Internal(e.to_string()))?;
+        let props_str = serde_json::to_string(properties)
+            .map_err(|e| OpenFangError::Serialization(e.to_string()))?;
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE entities SET properties = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![props_str, now, entity_id],
+        )
+        .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        Ok(())
+    }
 }
 
 /// Raw row from a graph query.

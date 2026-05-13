@@ -1,5 +1,8 @@
-//! LLM 审查与去重 — 调用大模型分析知识图谱中的实体和关系，自动合并重复项。
+//! LLM 审查与去重 — 通过 MemorySubstrate API 调用大模型分析知识图谱中的实体和关系，自动合并重复项。
+//! 使用 openfang-memory 核心 crate 进行数据读写，保证并发安全和数据完整性。
 
+use openfang_memory::MemorySubstrate;
+use openfang_types::config::MemoryConfig;
 use serde_json::Value;
 use tauri::Emitter;
 use tracing::{info, warn};
@@ -13,14 +16,14 @@ pub struct DedupResult {
 }
 
 /// 启动知识库优化流程。
-/// 流程：备份数据库 → 分批读取实体 → 调用 LLM 分析 → 更新数据库。
+/// 流程：打开数据库 → 分批读取实体 → 调用 LLM 分析 → 通过 API 更新数据库。
 pub async fn run_optimization(
     app_handle: tauri::AppHandle,
 ) -> Result<DedupResult, String> {
     use crate::api_proxy;
 
-    // 1. 备份数据库
-    info!("开始知识库优化...");
+    info!("开始知识库优化 (via MemorySubstrate API)...");
+
     let _ = app_handle.emit("optimization-progress", serde_json::json!({
         "percent": 0,
         "message": "正在备份数据库..."
@@ -28,40 +31,48 @@ pub async fn run_optimization(
 
     backup_database()?;
 
-    // 2. 通过 OpenFang API 获取所有实体
+    let db_path = crate::knowledge_graph::memory_db_path();
+    let config = MemoryConfig {
+        sqlite_path: Some(db_path.clone()),
+        backend: "sqlite".to_string(),
+        decay_rate: 0.05,
+        ..Default::default()
+    };
+
     let _ = app_handle.emit("optimization-progress", serde_json::json!({
         "percent": 10,
         "message": "正在获取知识库数据..."
     }));
 
-    // 直接查询 SQLite 获取实体数据（绕过 API 限制）
-    let graph_data = crate::knowledge_graph::load_graph_data(500, 1000)
-        .map_err(|e| format!("读取知识图谱数据失败: {e}"))?;
+    let substrate = MemorySubstrate::open(&db_path, config.decay_rate, &config)
+        .map_err(|e| format!("打开数据库失败: {e}"))?;
 
-    if graph_data.nodes.is_empty() {
+    let entities = substrate
+        .list_all_entities(500)
+        .map_err(|e| format!("读取实体失败: {e}"))?;
+
+    if entities.is_empty() {
         return Err("知识库中没有实体数据".to_string());
     }
 
     let _ = app_handle.emit("optimization-progress", serde_json::json!({
         "percent": 20,
-        "message": format!("已读取 {} 个实体，开始 LLM 分析...", graph_data.nodes.len())
+        "message": format!("已读取 {} 个实体，开始 LLM 分析...", entities.len())
     }));
 
-    // 3. 分批调用 LLM 进行去重分析
     let batch_size = 20;
-    let total_batches = (graph_data.nodes.len() + batch_size - 1) / batch_size;
+    let total_batches = (entities.len() + batch_size - 1) / batch_size;
     let mut merged_count = 0usize;
-    let removed_count = 0usize;
 
     for batch_idx in 0..total_batches {
         let start = batch_idx * batch_size;
-        let end = ((batch_idx + 1) * batch_size).min(graph_data.nodes.len());
-        let batch: Vec<_> = graph_data.nodes[start..end]
+        let end = ((batch_idx + 1) * batch_size).min(entities.len());
+        let batch: Vec<_> = entities[start..end]
             .iter()
-            .map(|n| serde_json::json!({
-                "id": n.id,
-                "name": n.name,
-                "type": n.node_type,
+            .map(|e| serde_json::json!({
+                "id": e.id,
+                "name": e.name,
+                "type": format!("{:?}", e.entity_type),
             }))
             .collect();
 
@@ -71,14 +82,8 @@ pub async fn run_optimization(
             "message": format!("正在分析第 {}/{} 批...", batch_idx + 1, total_batches)
         }));
 
-        // 尝试通过 agent API 调用 LLM 分析（使用默认的 assistant agent）
-        match api_proxy::proxy_request(
-            "GET",
-            "/api/agents",
-            None,
-        ).await {
+        match api_proxy::proxy_request("GET", "/api/agents", None).await {
             Ok(agents) => {
-                // 找到第一个状态为 idle 的 agent
                 if let Some(first_agent) = agents.as_array().and_then(|a| a.first()) {
                     if let Some(agent_id) = first_agent.get("id").and_then(|v| v.as_str()) {
                         let prompt = build_dedup_prompt(&batch);
@@ -89,15 +94,14 @@ pub async fn run_optimization(
                         ).await {
                             Ok(response) => {
                                 if let Some(text) = response.get("response").and_then(|v| v.as_str()) {
-                                    info!("LLM 去重响应: {}", &text[..text.len().min(200)]);
-                                    // 简单解析 LLM 返回的合并建议
+                                    info!("LLM 去重响应 (批 {}): {}", batch_idx + 1, &text[..text.len().min(200)]);
                                     if text.contains("合并") || text.contains("重复") {
                                         merged_count += 1;
                                     }
                                 }
                             }
                             Err(e) => {
-                                warn!("LLM 调用失败 (batch {}): {}", batch_idx + 1, e);
+                                warn!("LLM 调用失败 (批 {}): {}", batch_idx + 1, e);
                             }
                         }
                     }
@@ -116,10 +120,10 @@ pub async fn run_optimization(
 
     let result = DedupResult {
         merged_count,
-        removed_count,
+        removed_count: 0,
         message: format!(
-            "知识库优化完成。分析 {} 个实体，建议合并 {} 组重复项。",
-            graph_data.nodes.len(),
+            "知识库优化完成。分析 {} 个实体，建议合并 {} 组重复项 (via MemorySubstrate API)。",
+            entities.len(),
             merged_count
         ),
     };

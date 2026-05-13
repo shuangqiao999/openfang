@@ -4281,6 +4281,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "openfang-tauri-gui"
+version = "0.6.9"
+dependencies = [
+ "anyhow",
+ "dirs 6.0.0",
+ "futures-util",
+ "openfang-memory",
+ "openfang-types",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-shell",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "openfang-types"
 version = "0.6.9"
 dependencies = [
