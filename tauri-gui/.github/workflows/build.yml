@@ -1,0 +1,75 @@
+name: Build GUI Installer
+
+on:
+  push:
+    branches: [ feat/tauri-gui ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 1. 安装 Rust 工具链
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: gui-${{ runner.os }}
+
+      # 2. 从源码编译 OpenFang CLI（生成 openfang.exe）
+      - name: Build OpenFang CLI
+        run: cargo build --release -p openfang-cli
+
+      # 3. 将 openfang.exe 复制到 Tauri 资源目录
+      - name: Copy openfang.exe
+        run: |
+          New-Item -ItemType Directory -Force -Path tauri-gui\src-tauri\backend
+          Copy-Item target\release\openfang.exe tauri-gui\src-tauri\backend\openfang.exe
+
+      # 4. 同步 Agent 模板
+      - name: Sync agent templates
+        run: |
+          Remove-Item -Recurse -Force tauri-gui\agent-templates\* -ErrorAction SilentlyContinue
+          Get-ChildItem agents -Directory | ForEach-Object {
+            $src = Join-Path $_.FullName "agent.toml"
+            if (Test-Path $src) {
+              Copy-Item $src (Join-Path tauri-gui\agent-templates "$($_.Name).toml") -Force
+            }
+          }
+
+      # 5. 安装 Node.js 和前端依赖
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend deps
+        run: |
+          cd tauri-gui
+          npm ci
+
+      # 6. 构建前端并打包 Tauri 应用
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: ./tauri-gui
+          args: --release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # 7. 上传安装包
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenFang_GUI_Setup
+          path: tauri-gui/src-tauri/target/release/bundle/nsis/*.exe

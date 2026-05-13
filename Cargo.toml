@@ -16,6 +16,9 @@ members = [
     "crates/openfang-extensions",
     "xtask",
 ]
+exclude = [
+    "tauri-gui/src-tauri",
+]
 
 [workspace.package]
 version = "0.6.9"

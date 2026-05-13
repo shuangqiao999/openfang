@@ -1,0 +1,60 @@
+export interface Agent {
+  id: string;
+  name: string;
+  model: string;
+  provider: string;
+  status: string;
+}
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  isStreaming?: boolean;
+  toolCalls?: ToolCall[];
+}
+
+export interface ToolCall {
+  tool: string;
+  input?: string;
+}
+
+export interface ModelConfig {
+  provider: string;
+  base_url: string;
+  api_key: string;
+  model_name: string;
+}
+
+export interface BackendStatus {
+  healthy: boolean;
+  version: string;
+}
+
+export interface AgentTemplate {
+  name: string;
+  description: string;
+}
+
+export interface SSEChunk {
+  type: 'chunk' | 'tool_use' | 'tool_result' | 'phase' | 'done';
+  data: {
+    content?: string;
+    done?: boolean;
+    tool?: string;
+    input?: string;
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+    };
+  };
+}
+
+export interface AgentListItem {
+  id: string;
+  name: string;
+  model: string;
+  provider: string;
+  status: string;
+}
