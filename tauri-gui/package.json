@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "npx tsc --noEmit && npx vite build",
     "preview": "vite preview",
-    "tauri": "npx tauri"
+    "tauri": "node node_modules/@tauri-apps/cli/tauri.js"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
