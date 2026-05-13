@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "npx tsc --noEmit && npx vite build",
     "preview": "vite preview",
-    "tauri": "cargo tauri"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
