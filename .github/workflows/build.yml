@@ -44,7 +44,7 @@ jobs:
       - name: Install frontend deps
         run: cd tauri-gui && npm ci
       - name: Install Tauri CLI (exact version)
-        run: cargo install tauri-cli --version "=2.10.3"
+        run: cargo install tauri-cli --version "=2.10.1"
       - name: Verify Tauri versions
         run: |
           Write-Output "=== Rust tauri crate ==="
