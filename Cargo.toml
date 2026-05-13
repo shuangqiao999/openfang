@@ -11,11 +11,13 @@ members = [
     "crates/openfang-channels",
     "crates/openfang-migrate",
     "crates/openfang-skills",
-    "crates/openfang-desktop",
     "crates/openfang-hands",
     "crates/openfang-extensions",
     "tauri-gui/src-tauri",
     "xtask",
+]
+exclude = [
+    "crates/openfang-desktop",
 ]
 
 [workspace.package]
