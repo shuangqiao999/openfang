@@ -2,6 +2,10 @@
 //!
 //! When a daemon is running (`openfang start`), the CLI talks to it over HTTP.
 //! Otherwise, commands boot an in-process kernel (single-shot mode).
+//!
+//! When built as a GUI subprocess (not from terminal), suppress the console window.
+
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod bundled_agents;
 mod dotenv;

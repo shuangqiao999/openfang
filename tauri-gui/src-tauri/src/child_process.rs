@@ -84,12 +84,18 @@ impl ChildProcessManager {
 
         info!("启动子进程: {}", exe_path.display());
 
-        // 构建环境变量
+        // 构建环境变量 — 完全静默，无控制台窗口
         let mut cmd = Command::new(&exe_path);
-        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        cmd.stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .stdin(Stdio::null());
 
         #[cfg(windows)]
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW on Windows
+        {
+            // CREATE_NO_WINDOW (0x08000000) — 不创建控制台窗口
+            // DETACHED_PROCESS (0x00000008) — 脱离父进程控制台
+            cmd.creation_flags(0x08000000 | 0x00000008);
+        }
 
         // 注入 API key 环境变量（如果存在）
         if let Ok(enabled) = std::env::var("OPENFANG_TAURI_API_KEY_ENABLED") {
