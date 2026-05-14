@@ -8,7 +8,6 @@ import ChatPage from './pages/ChatPage';
 import AgentsPage from './pages/AgentsPage';
 import SettingsPage from './pages/SettingsPage';
 import KnowledgeGraph3D from './pages/KnowledgeGraph3D';
-import './App.css';
 
 const App: React.FC = () => {
   const themeMode = useConfigStore((s) => s.themeMode);
@@ -18,6 +17,11 @@ const App: React.FC = () => {
     fetchConfig();
     initListener();
   }, [fetchConfig, initListener]);
+
+  // 设置全局 data-theme 属性驱动 CSS 变量
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', themeMode);
+  }, [themeMode]);
 
   return (
     <ConfigProvider
