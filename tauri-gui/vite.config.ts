@@ -7,6 +7,12 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:4200",
+        changeOrigin: true,
+      },
+    },
     watch: {
       ignored: ["**/src-tauri/**"],
     },

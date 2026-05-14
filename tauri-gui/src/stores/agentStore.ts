@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { agentsApi } from '../services/apiClient';
 import { commands } from '../services/tauri_commands';
 import type { Agent, AgentTemplate } from '../types';
 
@@ -24,12 +25,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   fetchAgents: async () => {
     set({ loading: true });
     try {
-      const result = await commands.listAgents();
-      // API 返回直接数组 [{"id":"...","name":"...","state":"Running",...}]
-      // 也兼容 { agents: [...] } 格式
-      const raw = (
-        Array.isArray(result) ? result : (result as Record<string, unknown>)?.agents || []
-      ) as Record<string, unknown>[];
+      const raw = await agentsApi.list();
       const agents: Agent[] = raw.map((a) => ({
         id: a.id as string,
         name: a.name as string,
@@ -38,8 +34,6 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         status: (a.state || a.status || 'idle') as string,
       }));
       set({ agents, loading: false });
-
-      // 自动选中第一个 Agent（如果尚未选中）
       const { selectedAgentId } = get();
       if (!selectedAgentId && agents.length > 0) {
         set({ selectedAgentId: agents[0].id });
@@ -53,21 +47,20 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     try {
       const templates = await commands.listAgentTemplates();
       set({ templates });
-    } catch {
-      // 忽略
-    }
+    } catch { /* ignore */ }
   },
 
   createAgent: async (name: string, template: string) => {
-    await commands.createAgent(name, template);
+    // 通过 Tauri 加载模板 TOML（需要读取捆绑资源）
+    const manifestToml = await commands.loadTemplateToml(name, template);
+    await agentsApi.create(manifestToml);
     await get().fetchAgents();
   },
 
   deleteAgent: async (id: string) => {
-    await commands.deleteAgent(id);
+    await agentsApi.delete(id);
     const { selectedAgentId } = get();
     if (selectedAgentId === id) {
-      // 删除前选中下一个 Agent
       const remaining = get().agents.filter((a) => a.id !== id);
       set({ selectedAgentId: remaining.length > 0 ? remaining[0].id : null });
     }

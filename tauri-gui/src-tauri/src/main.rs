@@ -40,17 +40,11 @@ pub fn run() {
             commands::start_backend,
             commands::stop_backend,
             commands::restart_backend,
-            commands::get_backend_status,
-            commands::get_config,
-            commands::set_config,
-            commands::list_agents,
-            commands::create_agent,
-            commands::delete_agent,
-            commands::send_message_stream,
             commands::list_agent_templates,
-            commands::fetch_models,
+            commands::load_template_toml,
             commands::get_knowledge_graph_data,
             commands::start_knowledge_optimization,
+            commands::fetch_models,
         ])
         .setup(move |app| {
             let manager = process_manager.clone();

@@ -1,11 +1,11 @@
 import { create } from 'zustand';
+import { configApi, healthApi } from '../services/apiClient';
 import { commands } from '../services/tauri_commands';
 import type { ModelConfig, BackendStatus, ThemeMode } from '../types';
 import { listen } from '@tauri-apps/api/event';
 
 const THEME_KEY = 'openfang-theme';
 
-// 从 localStorage 读取主题偏好
 function loadTheme(): ThemeMode {
   try {
     const saved = localStorage.getItem(THEME_KEY);
@@ -14,11 +14,8 @@ function loadTheme(): ThemeMode {
   return 'light';
 }
 
-// 持久化主题到 localStorage
 function saveTheme(mode: ThemeMode) {
-  try {
-    localStorage.setItem(THEME_KEY, mode);
-  } catch { /* ignore */ }
+  try { localStorage.setItem(THEME_KEY, mode); } catch { /* ignore */ }
 }
 
 interface ConfigStore {
@@ -43,10 +40,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
     api_key: '',
     model_name: 'llama3.2:1b',
   },
-  backendStatus: {
-    healthy: false,
-    version: '未知',
-  },
+  backendStatus: { healthy: false, version: '未知' },
   themeMode: loadTheme(),
   loading: false,
   saving: false,
@@ -54,8 +48,17 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   fetchConfig: async () => {
     set({ loading: true });
     try {
-      const cfg = await commands.getConfig();
-      set({ config: cfg, loading: false });
+      const raw = await configApi.get();
+      const dm = (raw.default_model || raw) as Record<string, unknown>;
+      set({
+        config: {
+          provider: (dm.provider as string) || 'ollama',
+          base_url: (dm.base_url as string) || 'http://localhost:11434/v1',
+          api_key: (dm.api_key as string) || '',
+          model_name: (dm.model as string) || 'llama3.2:1b',
+        },
+        loading: false,
+      });
     } catch {
       set({ loading: false });
     }
@@ -64,7 +67,16 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   saveConfig: async (config: ModelConfig) => {
     set({ saving: true });
     try {
-      await commands.setConfig(config);
+      await configApi.set({
+        default_model: {
+          provider: config.provider,
+          base_url: config.base_url,
+          api_key: config.api_key,
+          model: config.model_name,
+        },
+      });
+      // 重启后端使配置生效
+      await commands.restartBackend();
       set({ config, saving: false });
     } catch (err) {
       set({ saving: false });
@@ -74,8 +86,11 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   checkStatus: async () => {
     try {
-      const status = await commands.getBackendStatus();
-      set({ backendStatus: status });
+      const healthy = await healthApi.check();
+      const version = healthy
+        ? await healthApi.detail().then((d) => (d.version as string) || '未知').catch(() => '未知')
+        : '未知';
+      set({ backendStatus: { healthy, version } });
     } catch {
       set({ backendStatus: { healthy: false, version: '未知' } });
     }
@@ -83,12 +98,8 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   initListener: async () => {
     await listen<string>('backend-status-change', (event) => {
-      const status = event.payload;
-      set((state) => ({
-        backendStatus: {
-          ...state.backendStatus,
-          healthy: status === 'running',
-        },
+      set((s) => ({
+        backendStatus: { ...s.backendStatus, healthy: event.payload === 'running' },
       }));
     });
   },
@@ -98,7 +109,6 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
     saveTheme(next);
     set({ themeMode: next });
   },
-
   setTheme: (mode: ThemeMode) => {
     saveTheme(mode);
     set({ themeMode: mode });

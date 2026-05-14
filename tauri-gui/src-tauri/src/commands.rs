@@ -162,7 +162,7 @@ pub async fn list_agents() -> Result<Value, String> {
 #[tauri::command]
 pub async fn create_agent(name: String, template: String) -> Result<Value, String> {
     // 尝试从内置资源加载模板
-    let manifest_toml = load_template_toml(&template, &name)?;
+    let manifest_toml = load_template_toml_inner(&template, &name)?;
 
     let body = serde_json::json!({
         "manifest_toml": manifest_toml,
@@ -172,7 +172,7 @@ pub async fn create_agent(name: String, template: String) -> Result<Value, Strin
 }
 
 /// 从资源目录或内置模板加载 agent TOML，并替换 agent 名称为用户指定的名称。
-fn load_template_toml(template_name: &str, agent_name: &str) -> Result<String, String> {
+fn load_template_toml_inner(template_name: &str, agent_name: &str) -> Result<String, String> {
     let resource_dir = std::env::var("TAURI_RESOURCE_DIR").unwrap_or_default();
 
     let candidates = vec![
@@ -287,4 +287,10 @@ pub async fn start_knowledge_optimization(app: tauri::AppHandle) -> Result<(), S
         }
     });
     Ok(())
+}
+
+/// 加载 Agent 模板 TOML（供前端调用）。
+#[tauri::command]
+pub async fn load_template_toml(name: String, template: String) -> Result<String, String> {
+    load_template_toml_inner(&template, &name)
 }

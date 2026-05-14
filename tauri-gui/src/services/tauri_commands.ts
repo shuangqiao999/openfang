@@ -1,35 +1,22 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ModelConfig, AgentTemplate, BackendStatus, GraphData } from '../types';
+import type { AgentTemplate, GraphData } from '../types';
 
 export const commands = {
-  // 后端管理
+  // 后端进程管理（仅保留系统级操作）
   startBackend: () => invoke<string>('start_backend'),
   stopBackend: () => invoke<string>('stop_backend'),
   restartBackend: () => invoke<string>('restart_backend'),
-  getBackendStatus: () => invoke<BackendStatus>('get_backend_status'),
 
-  // 配置管理
-  getConfig: () => invoke<ModelConfig>('get_config'),
-  setConfig: (config: ModelConfig) => invoke<string>('set_config', { cfg: config }),
-
-  // Agent 管理
-  listAgents: () => invoke<unknown>('list_agents'),
-  createAgent: (name: string, template: string) =>
-    invoke<unknown>('create_agent', { name, template }),
-  deleteAgent: (agentId: string) => invoke<unknown>('delete_agent', { agentId }),
-
-  // Agent 模板
+  // Agent 模板（需要读取捆绑资源文件）
   listAgentTemplates: () => invoke<AgentTemplate[]>('list_agent_templates'),
+  loadTemplateToml: (name: string, template: string) =>
+    invoke<string>('load_template_toml', { name, template }),
 
-  // 流式消息
-  sendMessageStream: (agentId: string, message: string) =>
-    invoke<void>('send_message_stream', { agentId, message }),
-
-  // 拉取模型列表
-  fetchModels: (provider: string, baseUrl: string, apiKey?: string) =>
-    invoke<string[]>('fetch_models', { provider, baseUrl, apiKey }),
-
-  // 知识图谱
+  // 知识图谱（需要 SQLite 访问）
   getKnowledgeGraphData: () => invoke<GraphData>('get_knowledge_graph_data'),
   startKnowledgeOptimization: () => invoke<void>('start_knowledge_optimization'),
+
+  // 模型列表拉取（需要代理外部 API）
+  fetchModels: (provider: string, baseUrl: string, apiKey?: string) =>
+    invoke<string[]>('fetch_models', { provider, baseUrl, apiKey }),
 };
