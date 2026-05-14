@@ -28,7 +28,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({ onSend, disabled, streaming }) => {
     let msg = value.trim();
     if (attachedFile) {
       const prefix = msg ? `${msg}\n\n` : '';
-      msg = `${prefix}[附件: ${attachedFile.name}]\n内容：\n${attachedFile.content.slice(0, 2000)}${attachedFile.content.length > 2000 ? '\n...(已截断)' : ''}`;
+      msg = `${prefix}[附件: ${attachedFile.name}]\n${attachedFile.content}`;
     }
     return msg;
   }, [value, attachedFile]);
