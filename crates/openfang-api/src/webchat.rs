@@ -58,6 +58,11 @@ const MANIFEST_JSON: &str = include_str!("../static/manifest.json");
 /// Embedded service worker for PWA support.
 const SW_JS: &str = include_str!("../static/sw.js");
 
+/// Embedded i18n translation files.
+const I18N_EN: &str = include_str!("../static/i18n/en.json");
+const I18N_ZH: &str = include_str!("../static/i18n/zh.json");
+const I18N_RU: &str = include_str!("../static/i18n/ru.json");
+
 /// GET /manifest.json — Serve the PWA web app manifest.
 pub async fn manifest_json() -> impl IntoResponse {
     (
@@ -80,6 +85,17 @@ pub async fn sw_js() -> impl IntoResponse {
     )
 }
 
+/// GET /i18n/{lang}.json — Serve translation files.
+pub async fn i18n_en() -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "application/json"), (header::CACHE_CONTROL, "public, max-age=3600")], I18N_EN)
+}
+pub async fn i18n_zh() -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "application/json"), (header::CACHE_CONTROL, "public, max-age=3600")], I18N_ZH)
+}
+pub async fn i18n_ru() -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "application/json"), (header::CACHE_CONTROL, "public, max-age=3600")], I18N_RU)
+}
+
 /// GET / — Serve the OpenFang Dashboard single-page application.
 ///
 /// Generates a unique CSP nonce on every request and injects it into both
@@ -90,10 +106,10 @@ pub async fn webchat_page() -> impl IntoResponse {
     let html = WEBCHAT_HTML.replace(NONCE_PLACEHOLDER, &nonce);
     let csp = format!(
         "default-src 'self'; \
-         script-src 'self' 'nonce-{nonce}' 'unsafe-eval' https://cdn.jsdelivr.net; \
+         script-src 'self' 'nonce-{nonce}' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com blob:; \
          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net; \
          img-src 'self' data: blob:; \
-         connect-src 'self' ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:* https://cdn.jsdelivr.net; \
+         connect-src 'self' ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:* https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; \
          font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; \
          media-src 'self' blob:; \
          frame-src 'self' blob:; \
@@ -121,6 +137,8 @@ pub async fn webchat_page() -> impl IntoResponse {
 /// locally — no CDN dependency. Alpine.js is included LAST because it
 /// immediately processes x-data directives and fires alpine:init on load.
 /// KaTeX is loaded dynamically from jsdelivr CDN when needed for LaTeX rendering.
+///
+/// NOTE: i18n.js MUST come BEFORE app.js because app.js references window.i18n.
 const WEBCHAT_HTML: &str = concat!(
     include_str!("../static/index_head.html"),
     "<style>\n",
@@ -133,6 +151,13 @@ const WEBCHAT_HTML: &str = concat!(
     include_str!("../static/vendor/github-dark.min.css"),
     "\n</style>\n",
     include_str!("../static/index_body.html"),
+    // i18n — must load BEFORE app.js (which references window.i18n)
+    "<script nonce=\"__NONCE__\">\n",
+    "var __I18N_ZH__ = ",
+    include_str!("../static/i18n/zh.json"),
+    ";\n",
+    include_str!("../static/i18n/i18n.js"),
+    "\n</script>\n",
     // Vendor libs: marked + highlight first (used by app.js), then Chart.js
     "<script nonce=\"__NONCE__\">\n",
     include_str!("../static/vendor/marked.min.js"),
@@ -184,6 +209,8 @@ const WEBCHAT_HTML: &str = concat!(
     include_str!("../static/js/pages/comms.js"),
     "\n",
     include_str!("../static/js/pages/runtime.js"),
+    "\n",
+    include_str!("../static/js/pages/knowledgegraph.js"),
     "\n</script>\n",
     // Alpine.js MUST be last — it processes x-data and fires alpine:init
     "<script nonce=\"__NONCE__\">\n",

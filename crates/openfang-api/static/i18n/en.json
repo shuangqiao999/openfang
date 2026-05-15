@@ -21,6 +21,7 @@
   "nav.system": "System",
   "nav.runtime": "Runtime",
   "nav.settings": "Settings",
+  "nav.knowledgegraph": "Knowledge Graph",
 
   "auth.sign_in": "Sign In",
   "auth.enter_credentials": "Enter your dashboard credentials.",
@@ -138,9 +139,6 @@
   "errors.reconnected": "Reconnected",
   "errors.connection_lost": "Connection lost, reconnecting...",
   "errors.switched_http": "Connection lost — switched to HTTP mode",
-  "errors.connection_lost": "Connection lost, reconnecting...",
-  "errors.switched_http": "Connection lost — switched to HTTP mode",
-  "errors.reconnected": "Reconnected",
 
   "toasts.approval_waiting": "An agent is waiting for approval. Open Approvals to review.",
   "toasts.agent_created": "Agent Created",
@@ -579,7 +577,6 @@
   "settings.migration": "Migration",
   "settings.security": "Security",
   "settings.network": "Network",
-  "settings.migration": "Migration",
   "settings.language": "Language",
 
   "settings.sec_path_traversal": "Path Traversal Prevention",
@@ -604,5 +601,13 @@
   "settings.sec_enabled": "Enabled",
   "settings.sec_disabled": "Disabled",
   "settings.sec_inherited": "Inherited",
-  "settings.sec_global": "Global"
+  "settings.sec_global": "Global",
+
+  "graph.title": "Knowledge Graph",
+  "graph.search_placeholder": "Search nodes...",
+  "graph.reset_view": "Reset View",
+  "graph.close": "Close",
+  "graph.no_data": "No graph data available",
+  "graph.loading": "Loading knowledge graph...",
+  "graph.llm_review": "LLM Review"
 }

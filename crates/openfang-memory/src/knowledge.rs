@@ -79,6 +79,66 @@ impl KnowledgeStore {
         Ok(id)
     }
 
+    /// List all entities in the knowledge graph.
+    pub fn list_entities(&self, limit: usize) -> OpenFangResult<Vec<Entity>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| OpenFangError::Internal(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT id, entity_type, name, properties, created_at, updated_at FROM entities ORDER BY updated_at DESC LIMIT ?1")
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let rows = stmt
+            .query_map([limit as i64], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let mut entities = Vec::new();
+        for row in rows {
+            let (id, etype, name, props, created, updated) =
+                row.map_err(|e| OpenFangError::Memory(e.to_string()))?;
+            entities.push(parse_entity(&id, &etype, &name, &props, &created, &updated));
+        }
+        Ok(entities)
+    }
+
+    /// List all relations in the knowledge graph.
+    pub fn list_relations(&self, limit: usize) -> OpenFangResult<Vec<Relation>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| OpenFangError::Internal(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT source_entity, relation_type, target_entity, properties, confidence, created_at FROM relations ORDER BY created_at DESC LIMIT ?1")
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let rows = stmt
+            .query_map([limit as i64], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, f64>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })
+            .map_err(|e| OpenFangError::Memory(e.to_string()))?;
+        let mut relations = Vec::new();
+        for row in rows {
+            let (source, rtype, target, props, confidence, created) =
+                row.map_err(|e| OpenFangError::Memory(e.to_string()))?;
+            relations.push(parse_relation(&source, &rtype, &target, &props, confidence, &created));
+        }
+        Ok(relations)
+    }
+
     /// Query the knowledge graph with a pattern.
     pub fn query_graph(&self, pattern: GraphPattern) -> OpenFangResult<Vec<GraphMatch>> {
         let conn = self

@@ -4071,9 +4071,12 @@ name = "openfang-desktop"
 version = "0.6.9"
 dependencies = [
  "axum",
+ "chrono",
  "open",
  "openfang-api",
  "openfang-kernel",
+ "openfang-memory",
+ "openfang-runtime",
  "openfang-types",
  "serde",
  "serde_json",

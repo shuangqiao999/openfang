@@ -58,7 +58,7 @@ function renderMarkdown(text) {
       html = html.replace('\x00LATEX' + i + '\x00', latexBlocks[i]);
     }
     // Add copy buttons to code blocks
-    html = html.replace(/<pre><code/g, '<pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><code');
+    html = html.replace(/<pre><code/g, '<pre><button class="copy-btn" onclick="copyCode(this)">' + (window.i18n ? window.i18n.t('actions.copy') : 'Copy') + '</button><code');
     // Open external links in new tab
     html = html.replace(/<a\s+href="(https?:\/\/[^"]*)"(?![^>]*target=)([^>]*)>/gi, '<a href="$1" target="_blank" rel="noopener"$2>');
     return html;
@@ -70,9 +70,9 @@ function copyCode(btn) {
   var code = btn.nextElementSibling;
   if (code) {
     navigator.clipboard.writeText(code.textContent).then(function() {
-      btn.textContent = 'Copied!';
+      btn.textContent = window.i18n ? window.i18n.t('actions.copied') : 'Copied!';
       btn.classList.add('copied');
-      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      setTimeout(function() { btn.textContent = window.i18n ? window.i18n.t('actions.copy') : 'Copy'; btn.classList.remove('copied'); }, 1500);
     });
   }
 }
@@ -166,7 +166,7 @@ document.addEventListener('alpine:init', function() {
           .sort()
           .join(',');
         if (pending.length > 0 && signature !== this.lastPendingApprovalSignature && typeof OpenFangToast !== 'undefined') {
-          OpenFangToast.warn('An agent is waiting for approval. Open Approvals to review.');
+          OpenFangToast.warn(window.i18n ? window.i18n.t('toasts.approval_waiting') : 'An agent is waiting for approval. Open Approvals to review.');
         }
         this.pendingApprovalCount = pending.length;
         this.lastPendingApprovalSignature = signature;
@@ -299,11 +299,55 @@ function app() {
     wsConnected: false,
     version: '0.1.0',
     agentCount: 0,
+    lang: (function() {
+      var saved = localStorage.getItem('openfang_language');
+      return saved || 'zh';
+    })(),
 
     get agents() { return Alpine.store('app').agents; },
 
     init() {
       var self = this;
+
+      // Force Chinese on first launch if no preference saved
+      if (!localStorage.getItem('openfang_language')) {
+        localStorage.setItem('openfang_language', 'zh');
+        if (window.i18n) window.i18n.setLanguage('zh');
+      }
+
+      // ── MutationObserver: auto-translate any DOM that Alpine renders ──
+      var translationDebounce;
+      var observer = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+          var m = mutations[i];
+          if (m.type === 'childList' && m.addedNodes.length) {
+            clearTimeout(translationDebounce);
+            translationDebounce = setTimeout(function() {
+              if (window.i18n) window.i18n.applyTranslations();
+            }, 30);
+            break;
+          }
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: false });
+
+      // Delay an initial translation sweep so Alpine x-if templates are rendered
+      var INITIAL_SWEEPS = 5;
+      for (var s = 0; s < INITIAL_SWEEPS; s++) {
+        setTimeout(function() {
+          if (window.i18n) window.i18n.applyTranslations();
+        }, 100 + s * 200);
+      }
+
+      // Listen for language changes and re-apply translations
+      window.addEventListener('i18n:language-changed', function() {
+        self.lang = window.i18n ? window.i18n.getLanguage() : 'zh';
+        setTimeout(function() {
+          if (window.i18n) window.i18n.applyTranslations();
+        }, 30);
+      });
+
+      // Re-apply translations when page changes (Alpine re-renders templates)
 
       // Listen for OS theme changes (only matters when mode is 'system')
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
@@ -313,7 +357,7 @@ function app() {
       });
 
       // Hash routing
-      var validPages = ['overview','agents','sessions','approvals','comms','workflows','scheduler','channels','skills','hands','analytics','logs','runtime','settings','wizard'];
+      var validPages = ['overview','agents','sessions','approvals','comms','workflows','scheduler','channels','skills','hands','analytics','logs','runtime','settings','wizard','knowledgegraph'];
       var pageRedirects = {
         'chat': 'agents',
         'templates': 'agents',
@@ -403,6 +447,19 @@ function app() {
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
       localStorage.setItem('openfang-sidebar', this.sidebarCollapsed ? 'collapsed' : 'expanded');
+    },
+
+    switchLang(lang) {
+      if (window.i18n) {
+        window.i18n.setLanguage(lang);
+        this.lang = lang;
+        localStorage.setItem('openfang_language', lang);
+      }
+    },
+
+    // Shorthand for window.i18n.t() accessible in x-text/x-bind
+    _t(key, params) {
+      return window.i18n ? window.i18n.t(key, params) : key;
     },
 
     async pollStatus() {

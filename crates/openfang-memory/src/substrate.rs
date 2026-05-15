@@ -315,6 +315,20 @@ impl MemorySubstrate {
     }
 
     // -----------------------------------------------------------------
+    // Knowledge graph listing (for frontend visualization)
+    // -----------------------------------------------------------------
+
+    /// List all entities stored in the knowledge graph.
+    pub fn list_entities(&self, limit: usize) -> OpenFangResult<Vec<Entity>> {
+        self.knowledge.list_entities(limit)
+    }
+
+    /// List all relations stored in the knowledge graph.
+    pub fn list_relations(&self, limit: usize) -> OpenFangResult<Vec<Relation>> {
+        self.knowledge.list_relations(limit)
+    }
+
+    // -----------------------------------------------------------------
     // Paired devices persistence
     // -----------------------------------------------------------------
 

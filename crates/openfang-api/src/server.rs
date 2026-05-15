@@ -165,6 +165,9 @@ pub async fn build_router(
         .route("/favicon.ico", axum::routing::get(webchat::favicon_ico))
         .route("/manifest.json", axum::routing::get(webchat::manifest_json))
         .route("/sw.js", axum::routing::get(webchat::sw_js))
+        .route("/i18n/en.json", axum::routing::get(webchat::i18n_en))
+        .route("/i18n/zh.json", axum::routing::get(webchat::i18n_zh))
+        .route("/i18n/ru.json", axum::routing::get(webchat::i18n_ru))
         .route(
             "/api/metrics",
             axum::routing::get(routes::prometheus_metrics),
@@ -519,7 +522,8 @@ pub async fn build_router(
             axum::routing::get(routes::comms_events_stream),
         )
         .route("/api/comms/send", axum::routing::post(routes::comms_send))
-        .route("/api/comms/task", axum::routing::post(routes::comms_task));
+        .route("/api/comms/task", axum::routing::post(routes::comms_task))
+        .route("/api/knowledge/graph", axum::routing::get(routes::get_knowledge_graph));
 
     // Split into a second router chunk to stay within axum's type nesting limit.
     let app = app

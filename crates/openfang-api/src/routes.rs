@@ -11958,6 +11958,101 @@ fn validate_webhook_token(headers: &axum::http::HeaderMap, token_env: &str) -> b
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// Knowledge Graph API
+// ══════════════════════════════════════════════════════════════════════
+
+/// GET /api/knowledge/graph — Return the full knowledge graph (nodes + links).
+pub async fn get_knowledge_graph(
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let limit = 500usize;
+    let entities = match state.kernel.memory.list_entities(limit) {
+        Ok(e) => e,
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": format!("{err}")})),
+            )
+                .into_response();
+        }
+    };
+    let relations = match state.kernel.memory.list_relations(limit) {
+        Ok(r) => r,
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": format!("{err}")})),
+            )
+                .into_response();
+        }
+    };
+
+    let nodes: Vec<serde_json::Value> = entities
+        .into_iter()
+        .filter(|e| {
+            !e.properties.get("duplicate").and_then(|v| v.as_bool()).unwrap_or(false)
+        })
+        .map(|e| {
+            let entity_type_str = match &e.entity_type {
+                openfang_types::memory::EntityType::Person => "Person",
+                openfang_types::memory::EntityType::Organization => "Organization",
+                openfang_types::memory::EntityType::Project => "Project",
+                openfang_types::memory::EntityType::Concept => "Concept",
+                openfang_types::memory::EntityType::Event => "Event",
+                openfang_types::memory::EntityType::Location => "Location",
+                openfang_types::memory::EntityType::Document => "Document",
+                openfang_types::memory::EntityType::Tool => "Tool",
+                openfang_types::memory::EntityType::Custom(s) => s.as_str(),
+            };
+            let group = match &e.entity_type {
+                openfang_types::memory::EntityType::Person => "agent",
+                openfang_types::memory::EntityType::Organization | openfang_types::memory::EntityType::Project => "feature",
+                openfang_types::memory::EntityType::Concept => "system",
+                openfang_types::memory::EntityType::Event => "feature",
+                openfang_types::memory::EntityType::Location => "infra",
+                openfang_types::memory::EntityType::Document => "feature",
+                openfang_types::memory::EntityType::Tool => "infra",
+                openfang_types::memory::EntityType::Custom(_) => "unknown",
+            };
+            let desc = e.properties.get("description").and_then(|v| v.as_str()).map(|s| s.to_string());
+            serde_json::json!({
+                "id": e.id,
+                "name": e.name,
+                "group": group,
+                "type": entity_type_str,
+                "description": desc,
+            })
+        })
+        .collect();
+
+    let links: Vec<serde_json::Value> = relations
+        .into_iter()
+        .map(|r| {
+            let rel_label = match &r.relation {
+                openfang_types::memory::RelationType::WorksAt => "works_at",
+                openfang_types::memory::RelationType::KnowsAbout => "knows_about",
+                openfang_types::memory::RelationType::RelatedTo => "related_to",
+                openfang_types::memory::RelationType::DependsOn => "depends_on",
+                openfang_types::memory::RelationType::OwnedBy => "owned_by",
+                openfang_types::memory::RelationType::CreatedBy => "created_by",
+                openfang_types::memory::RelationType::LocatedIn => "located_in",
+                openfang_types::memory::RelationType::PartOf => "part_of",
+                openfang_types::memory::RelationType::Uses => "uses",
+                openfang_types::memory::RelationType::Produces => "produces",
+                openfang_types::memory::RelationType::Custom(s) => s.as_str(),
+            };
+            serde_json::json!({
+                "source": r.source,
+                "target": r.target,
+                "relationship": rel_label,
+            })
+        })
+        .collect();
+
+    (StatusCode::OK, Json(serde_json::json!({"nodes": nodes, "links": links}))).into_response()
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // GitHub Copilot OAuth Device Flow
 // ══════════════════════════════════════════════════════════════════════
 

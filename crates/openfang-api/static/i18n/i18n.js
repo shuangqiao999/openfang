@@ -1,58 +1,56 @@
 /**
  * OpenFang i18n (Internationalization) Module
- * 
+ *
  * Provides runtime language switching for the OpenFang dashboard UI.
- * Supports English (default) and Russian.
- * 
+ * Supports English, Chinese (default), and Russian.
+ *
+ * Chinese translations are preloaded at build time — no fetch required.
+ * Switching to en/ru triggers a fetch for the respective JSON file.
+ *
  * Usage:
  *   - HTML: <span data-i18n="nav.overview">Overview</span>
- *   - JS:   window.t('nav.overview')
- *   - Auto-applies translations on load based on stored/preferred language
+ *   - JS:   window.i18n.t('nav.overview')
  */
 
 (function() {
   'use strict';
 
-  // Language store
-  let currentLang = 'en';
-  let translations = {};
-  let isInitialized = false;
+  var currentLang = 'zh';
+  var translations = {};
+  var isInitialized = false;
 
-  /**
-   * Load translations from a JSON file
-   * @param {string} lang - Language code (en, ru)
-   * @returns {Promise<Object>} Translation object
-   */
-  async function loadTranslations(lang) {
-    try {
-      // Use cached translations if available
-      if (window.__i18nCache && window.__i18nCache[lang]) {
-        return window.__i18nCache[lang];
-      }
+  // Embedded Chinese translations (injected at compile time by webchat.rs)
+  var ZH_TRANSLATIONS = null;
+  try { ZH_TRANSLATIONS = __I18N_ZH__; } catch(e) {}
 
-      const response = await fetch(`/i18n/${lang}.json`);
-      if (!response.ok) {
-        console.warn(`[i18n] Failed to load ${lang}.json, falling back to en`);
-        if (lang !== 'en') {
-          return loadTranslations('en');
-        }
-        return {};
-      }
-
-      const data = await response.json();
-      
-      // Cache for future use
-      if (!window.__i18nCache) window.__i18nCache = {};
-      window.__i18nCache[lang] = data;
-      
-      return data;
-    } catch (error) {
-      console.error(`[i18n] Error loading translations for ${lang}:`, error);
-      if (lang !== 'en') {
-        return loadTranslations('en');
-      }
-      return {};
+  function loadTranslations(lang) {
+    // Use cached translations if available
+    if (window.__i18nCache && window.__i18nCache[lang]) {
+      return Promise.resolve(window.__i18nCache[lang]);
     }
+
+    // Chinese is preloaded
+    if (lang === 'zh' && ZH_TRANSLATIONS) {
+      if (!window.__i18nCache) window.__i18nCache = {};
+      window.__i18nCache['zh'] = ZH_TRANSLATIONS;
+      return Promise.resolve(ZH_TRANSLATIONS);
+    }
+
+    return fetch('/i18n/' + lang + '.json')
+      .then(function(resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json();
+      })
+      .then(function(data) {
+        if (!window.__i18nCache) window.__i18nCache = {};
+        window.__i18nCache[lang] = data;
+        return data;
+      })
+      .catch(function(err) {
+        console.warn('[i18n] Failed to load ' + lang + '.json: ' + err + ', falling back to zh');
+        if (lang !== 'zh') return loadTranslations('zh');
+        return {};
+      });
   }
 
   /**
@@ -143,9 +141,9 @@
    * @param {boolean} persist - Whether to save to localStorage
    */
   async function setLanguage(lang, persist = true) {
-    if (!['en', 'ru'].includes(lang)) {
-      console.warn(`[i18n] Unknown language: ${lang}, defaulting to en`);
-      lang = 'en';
+    if (!['en', 'ru', 'zh'].includes(lang)) {
+      console.warn(`[i18n] Unknown language: ${lang}, defaulting to zh`);
+      lang = 'zh';
     }
 
     currentLang = lang;
@@ -182,7 +180,8 @@
     // Determine language priority:
     // 1. localStorage (user preference)
     // 2. Browser language
-    // 3. Default to English
+    // 3. Default to Chinese
+  // 3. Default to Chinese
 
     let lang = localStorage.getItem('openfang_language');
     
@@ -191,8 +190,10 @@
       const browserLang = navigator.language || navigator.userLanguage || '';
       if (browserLang.startsWith('ru')) {
         lang = 'ru';
+      } else if (browserLang.startsWith('zh')) {
+        lang = 'zh';
       } else {
-        lang = 'en';
+        lang = 'zh';
       }
     }
 
@@ -206,7 +207,8 @@
   function getAvailableLanguages() {
     return [
       { code: 'en', name: 'English' },
-      { code: 'ru', name: 'Русский' }
+      { code: 'ru', name: 'Русский' },
+      { code: 'zh', name: '中文' }
     ];
   }
 
@@ -216,15 +218,29 @@
     setLanguage,
     getLanguage,
     getAvailableLanguages,
+    applyTranslations,
     init,
     isInitialized: () => isInitialized
   };
 
-  // Auto-initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+  // Initialize immediately if translations are preloaded (zh is embedded)
+  if (ZH_TRANSLATIONS) {
+    translations = ZH_TRANSLATIONS;
+    isInitialized = true;
+    currentLang = 'zh';
+    // Apply translations once DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() { applyTranslations(); });
+    } else {
+      applyTranslations();
+    }
   } else {
-    init();
+    // No embedded data — auto-init with fetch
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
   }
 
 })();

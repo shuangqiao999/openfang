@@ -103,6 +103,8 @@ pub fn run() {
             commands::install_update,
             commands::open_config_dir,
             commands::open_logs_dir,
+            commands::get_knowledge_graph,
+            commands::llm_review_knowledge,
         ])
         .setup(move |app| {
             // Create the main window pointing directly at the embedded HTTP server.
